@@ -141,108 +141,45 @@ docker compose exec -T backend bench new-site vente.hexalith.com \
 
 ---
 
-## Étape 5 : Installation de l'app erpnext-real-estate-sales (PROBLÈMES)
+## Étape 5 : Installation de l'app real_estate_sale (SUCCÈS)
 
-### URL du dépôt (privé) :
-🔒 git@github.com:Itaneo/erpnext-real-estate-sales.git (Dépôt privé - nécessite clé SSH)
+### Source de l'application :
+📂 Local : `~/erpnext-real-estate-sales`
 
-### État actuel :
-✅ Dépôt Git cloné avec succès dans `apps/vente_immo/`
-✅ SSH configuré dans le conteneur
-✅ App ajoutée à `sites/apps.txt`
-✅ Installation pip effectuée
-❌ Problème de structure de l'app empêchant l'installation sur le site
+### Procédure d'installation réussie :
 
-### Problème rencontré :
+1. **Copie de l'application dans le conteneur**
+   ```bash
+   docker cp ~/erpnext-real-estate-sales frappe_docker-backend-1:/home/frappe/frappe-bench/apps/real_estate_sale
+   ```
 
-L'app `vente_immo` a une structure non standard qui empêche Frappe de la reconnaître correctement :
+2. **Installation dans l'environnement virtuel (pip)**
+   ⚠️ Important : Utiliser `env/bin/pip` et non le pip global.
+   ```bash
+   docker compose exec -T backend env/bin/pip install -e apps/real_estate_sale
+   ```
 
-**Structure actuelle :**
-```
-apps/vente_immo/
-├── __init__.py           # Contient __version__
-├── hooks.py              # Configuration de l'app
-├── modules.txt           # Liste "Real Estate"
-├── real_estate/          # Module métier principal
-│   ├── __init__.py
-│   ├── doctype/
-│   └── ...
-└── vente_immo/           # Sous-répertoire mal configuré
-    ├── __init__.py
-    └── workspace/
-```
+3. **Ajout de l'application à la liste des apps**
+   Si l'application n'est pas détectée, l'ajouter manuellement :
+   ```bash
+   docker compose exec -T backend bash -c "echo 'real_estate_sale' >> sites/apps.txt"
+   ```
 
-**Erreur :**
-```
-ModuleNotFoundError: No module named 'vente_immo'
-```
+4. **Installation sur le site**
+   ```bash
+   docker compose exec -T backend bench --site vente.hexalith.com install-app real_estate_sale
+   ```
 
-### Solutions possibles :
+5. **Migration et redémarrage**
+   ```bash
+   docker compose exec -T backend bench --site vente.hexalith.com migrate
+   docker compose restart backend
+   ```
 
-#### Solution 1 : Correction manuelle de la structure (Recommandé)
-
+### Vérification :
 ```bash
-# Entrer dans le conteneur
-docker compose exec backend bash
-
-# Déplacer tous les fichiers de real_estate/ vers vente_immo/
-cd apps/vente_immo
-cp -r real_estate/* vente_immo/
-# Vérifier que vente_immo/__init__.py existe et contient les imports nécessaires
-
-# Réinstaller avec pip
-python -m pip install -e .
-
-# Redémarrer les services
-exit
-docker compose restart backend queue-short queue-long scheduler
-
-# Installer sur le site
-docker compose exec -T backend bench --site vente.hexalith.com install-app vente_immo
-
-# Reconstruire les assets
-docker compose exec -T backend bench build
-
-# Redémarrer frontend
-docker compose restart frontend websocket
-```
-
-#### Solution 2 : Utiliser une image Docker custom
-
-Créer une image Docker personnalisée avec l'app pré-installée (plus complexe mais plus propre pour la production).
-
-#### Solution 3 : Contacter le développeur de l'app
-
-L'app semble avoir des problèmes de packaging. Il serait préférable de contacter le développeur pour corriger la structure.
-
-### Commandes déjà effectuées :
-
-```bash
-# 1. Installation de SSH dans le conteneur
-docker compose exec -u root -T backend apt-get update && apt-get install -y openssh-client
-
-# 2. Configuration SSH
-docker cp ~/.ssh/id_ed25519 frappe_docker-backend-1:/home/frappe/.ssh/
-docker compose exec -T backend chmod 600 ~/.ssh/id_ed25519
-docker compose exec -T backend ssh-keyscan github.com >> ~/.ssh/known_hosts
-
-# 3. Clonage du dépôt
-docker compose exec -T backend bench get-app erpnext-real-estate-sales git@github.com:Itaneo/erpnext-real-estate-sales.git
-
-# 4. Correction du setup.py (problème d'import de __version__)
-# Fichier modifié pour définir __version__ = "0.0.1" directement
-
-# 5. Création de vente_immo/__init__.py
-echo '__version__ = "0.0.1"' > apps/vente_immo/vente_immo/__init__.py
-
-# 6. Installation pip
-python -m pip install -e apps/vente_immo/
-
-# 7. Ajout à apps.txt
-echo 'vente_immo' >> sites/apps.txt
-
-# 8. Redémarrage des services
-docker compose restart backend queue-short queue-long scheduler
+docker compose exec -T backend bench --site vente.hexalith.com list-apps
+# Doit afficher : real_estate_sale 0.0.1
 ```
 
 ---
@@ -252,12 +189,6 @@ docker compose restart backend queue-short queue-long scheduler
 ### Commandes exécutées :
 
 ```bash
-# Retirer vente_immo de apps.txt (problème de structure)
-docker compose exec -T backend bash -c "grep -v vente_immo sites/apps.txt > sites/apps.txt.tmp && mv sites/apps.txt.tmp sites/apps.txt"
-
-# Redémarrer les services backend
-docker compose restart backend queue-short queue-long scheduler
-
 # Site erp.hexalith.com
 docker compose exec -T backend bench --site erp.hexalith.com set-config force_https 1
 
@@ -360,6 +291,24 @@ docker compose exec backend bench build --app <APP_NAME>
 docker compose exec backend bench --site <SITE_NAME> migrate
 ```
 
+### Mise à jour de l'app locale (Développement)
+
+Si vous modifiez le code source localement dans `~/erpnext-real-estate-sales` :
+
+```bash
+# 1. Copier les fichiers modifiés dans le conteneur
+docker cp ~/erpnext-real-estate-sales/. frappe_docker-backend-1:/home/frappe/frappe-bench/apps/real_estate_sale/
+
+# 2. Appliquer les changements de base de données (si DocTypes modifiés)
+docker compose exec -T backend bench --site vente.hexalith.com migrate
+
+# 3. Redémarrer le backend (pour recharger le code Python)
+docker compose restart backend
+
+# 4. Vider le cache
+docker compose exec -T backend bench --site vente.hexalith.com clear-cache
+```
+
 ### Maintenance
 
 ```bash
@@ -458,7 +407,6 @@ docker compose up -d     # Redémarrer avec la nouvelle config
 
 ### ⏳ Étapes en attente
 
-7. ⏳ **Installer erpnext-real-estate-sales** sur vente.hexalith.com (problème de structure de l'app à résoudre)
 8. ⏳ **Tests finaux** via navigateur web
 9. ⏳ **Configuration DNS** (si pas déjà fait)
 
@@ -471,7 +419,7 @@ docker compose up -d     # Redémarrer avec la nouvelle config
   - Status: ✅ Opérationnel
 
 - **https://vente.hexalith.com**
-  - ERPNext standard (app Real Estate à installer)
+  - ERPNext + App Real Estate Sale
   - Admin: Administrator
   - Password: L Hiver est presque arrive a son terme
   - Status: ✅ Opérationnel
@@ -493,13 +441,10 @@ Tous les services doivent être "Up" :
 - ✅ queue-long
 - ✅ scheduler
 
-### 🔧 Prochaines étapes pour installer l'app Real Estate
+### 🔧 Prochaines étapes
 
-L'app `erpnext-real-estate-sales` a été clonée mais rencontre des problèmes de structure. Pour l'installer :
-
-**Option recommandée :** Contacter le développeur de l'app pour corriger la structure du package.
-
-**Alternative temporaire :** Suivre la "Solution 1" dans l'[Étape 5](#étape-5--installation-de-lapp-erpnext-real-estate-sales-problèmes) pour réorganiser manuellement la structure de l'app.
+L'application `real_estate_sale` est installée et fonctionnelle.
+Il reste à vérifier les fixtures et les templates de dossiers qui ont généré des avertissements lors de l'installation (incohérence de nommage DocType).
 
 ---
 
