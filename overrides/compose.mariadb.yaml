@@ -8,9 +8,9 @@ services:
         condition: service_healthy
 
   db:
-    image: mariadb:11.8
+    image: mariadb:10.8
     healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      test: ["CMD-SHELL", "mariadb-admin ping -h localhost -u root -p\"$$MYSQL_ROOT_PASSWORD\""]
       start_period: 5s
       interval: 5s
       timeout: 5s
