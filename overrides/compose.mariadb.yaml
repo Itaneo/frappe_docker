@@ -24,6 +24,8 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-123}
       MARIADB_AUTO_UPGRADE: 1
+    ports:
+      - "3306:3306"
     volumes:
       - db-data:/var/lib/mysql
 

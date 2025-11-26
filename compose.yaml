@@ -27,12 +27,14 @@ services:
     command:
       - >
         ls -1 apps > sites/apps.txt;
-        bench set-config -g db_host $$DB_HOST;
-        bench set-config -gp db_port $$DB_PORT;
-        bench set-config -g redis_cache "redis://$$REDIS_CACHE";
-        bench set-config -g redis_queue "redis://$$REDIS_QUEUE";
-        bench set-config -g redis_socketio "redis://$$REDIS_QUEUE";
-        bench set-config -gp socketio_port $$SOCKETIO_PORT;
+        echo "{" > sites/common_site_config.json;
+        echo "\"db_host\": \"172.21.0.1\"," >> sites/common_site_config.json;
+        echo "\"db_port\": 3306," >> sites/common_site_config.json;
+        echo "\"redis_cache\": \"redis://172.21.0.1:6379\"," >> sites/common_site_config.json;
+        echo "\"redis_queue\": \"redis://172.21.0.1:6378\"," >> sites/common_site_config.json;
+        echo "\"redis_socketio\": \"redis://172.21.0.1:6378\"," >> sites/common_site_config.json;
+        echo "\"socketio_port\": 9000" >> sites/common_site_config.json;
+        echo "}" >> sites/common_site_config.json;
     environment:
       DB_HOST: ${DB_HOST:-}
       DB_PORT: ${DB_PORT:-}
@@ -45,6 +47,8 @@ services:
   backend:
     <<: *backend_defaults
     platform: linux/amd64
+    ports:
+      - "8000:8000"
 
   frontend:
     <<: *customizable_image
@@ -52,8 +56,8 @@ services:
     command:
       - nginx-entrypoint.sh
     environment:
-      BACKEND: backend:8000
-      SOCKETIO: websocket:9000
+      BACKEND: 172.21.0.1:8000
+      SOCKETIO: 172.21.0.1:9000
       FRAPPE_SITE_NAME_HEADER: ${FRAPPE_SITE_NAME_HEADER:-$$host}
       UPSTREAM_REAL_IP_ADDRESS: ${UPSTREAM_REAL_IP_ADDRESS:-127.0.0.1}
       UPSTREAM_REAL_IP_HEADER: ${UPSTREAM_REAL_IP_HEADER:-X-Forwarded-For}
@@ -74,6 +78,8 @@ services:
       - /home/frappe/frappe-bench/apps/frappe/socketio.js
     volumes:
       - sites:/home/frappe/frappe-bench/sites
+    ports:
+      - "9000:9000"
 
   queue-short:
     <<: *backend_defaults
